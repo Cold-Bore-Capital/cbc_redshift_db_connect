@@ -1,0 +1,15 @@
+version: '3.7'
+services:
+    postgres:
+        container_name: airflow_pg
+        image: postgres:9.6
+        env_file:
+            - .env
+        ports:
+            - "5433:5432"
+        volumes:
+            - "${LOCALDATABASE}:/var/lib/postgresql/data/pgdata"
+        logging:
+            options:
+                max-size: 10m
+                max-file: "3"
