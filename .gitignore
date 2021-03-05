@@ -130,3 +130,4 @@ dmypy.json
 .pyre/
 
 tests/db/
+!tests/db/__init__.py
