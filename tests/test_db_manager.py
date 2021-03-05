@@ -1,7 +1,7 @@
 from unittest import TestCase
 import pandas as pd
 import psycopg2
-from db_connect.db_manager import DBManager
+from db_manager.db_manager import DBManager
 
 
 class TestDBManager(TestCase):

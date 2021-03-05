@@ -7,7 +7,7 @@ LONG_DESCRIPTION = 'A python package to assist with connecting to Redshift via a
 # Setting up
 setup(
     # the name must match the folder name 'verysimplemodule'
-    name="db_connect",
+    name="db_manager",
     version=VERSION,
     author="CBC IT Group",
     author_email="it-group@coldborecapital.com",
