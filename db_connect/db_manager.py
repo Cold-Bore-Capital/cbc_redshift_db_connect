@@ -55,15 +55,15 @@ class DBManager:
             db_schema:
             db_host:
         """
-
         self._config = Config()
         self._debug_mode = self._config.debug_output_mode if not debug_output_mode else debug_output_mode
         self._db_host = db_host if db_host else self._config.db_host
         self._db_name = db_name if db_name else self._config.db_name
         self._db_user = db_user if db_user else self._config.db_user
         self._db_password = db_password if db_password else self._config.db_password
-        self.db_schema = db_schema if db_schema else self._config.db_schema
-        self.db_port = ssh_remote_bind_port if ssh_remote_bind_port else self._config.ssh_remote_bind_port
+        # @todo Implement this as a default schema.
+        self._db_schema = db_schema if db_schema else self._config.db_schema
+        self._db_port = ssh_remote_bind_port if ssh_remote_bind_port else self._config.ssh_remote_bind_port
 
         self.use_ssh = use_ssh if use_ssh else self._config.use_ssh
         if self.use_ssh:
@@ -124,7 +124,7 @@ class DBManager:
             self.tunnel.stop()
             raise ConnectionError(e)
 
-    def _safe_shutdown(self, conn, csr=None, error_mode=False):
+    def _safe_tunnel_close(self):
         """
         Safely shuts down the connection and tunnel in the event of a problem.
 
@@ -136,23 +136,25 @@ class DBManager:
         Returns: None
 
         """
-        if error_mode:
-            print("WARNING: Safe shutdown of DB connection and SSH tunnel initiated.")
-        try:
-            if csr:
-                csr.close()
-                del csr
-            if error_mode:
-                conn.rollback()
-            conn.close()
-            self._print_debug_output("Connection closed.")
-        except Exception as e:
-            print('Failed to close database connection: \n {e}')
-        try:
-            self.tunnel.close()
-            self._print_debug_output('SSH Tunnel closed.')
-        except Exception as e:
-            print('Failed to close SSH tunnel: \n {e}')
+        # if error_mode:
+        #     print("WARNING: Safe shutdown of DB connection and SSH tunnel initiated.")
+        # try:
+        #     if csr:
+        #         csr.close()
+        #         del csr
+        #     if error_mode:
+        #         conn.rollback()
+        #     conn.close()
+        #     self._print_debug_output("Connection closed.")
+        # except Exception as e:
+        #     print('Failed to close database connection: \n {e}')
+
+        if self.use_ssh:
+            try:
+                self.tunnel.close()
+                self._print_debug_output('SSH Tunnel closed.')
+            except Exception as e:
+                print('Failed to close SSH tunnel: \n {e}')
 
     def get_sql_dataframe(self, sql: str, params: list = None) -> pd.DataFrame:
         """
@@ -175,11 +177,10 @@ class DBManager:
                 else:
                     df = pd.read_sql_query(sql, con=conn)
             except Exception as e:
-                self._safe_shutdown(conn, error_mode=True)
+                self._safe_tunnel_close()
                 raise Exception(f'Database Read Attempt Failed \n {e}')
             finally:
-                conn.close()
-                self.tunnel.close()
+                self._safe_tunnel_close()
         return df
 
     def get_sql_list_dicts(self, sql: str, params: list = None) -> List[Dict[str, Any]]:
@@ -212,10 +213,10 @@ class DBManager:
                     for row in csr.fetchall():
                         output.append(dict(zip(columns, row)))
                 except Exception as e:
-                    self._safe_shutdown(conn, error_mode=True)
+                    self._safe_tunnel_close()
                     raise Exception(f'Database Read Attempt Failed \n {e}')
                 finally:
-                    self._safe_shutdown(conn, csr)
+                    self._safe_tunnel_close()
         return output
 
     def get_sql_single_item_list(self, sql: str, params: list = None) -> list:
@@ -242,13 +243,13 @@ class DBManager:
                     for row in curs.fetchall():
                         output.append(row[0])
                 except Exception as e:
-                    self._safe_shutdown(conn, error_mode=True)
+                    self._safe_tunnel_close()
                     raise Exception(f'Database Read Attempt Failed \n {e}')
                 finally:
-                    self._safe_shutdown(conn, curs)
+                    self._safe_tunnel_close()
         return output
 
-    def execute_simple(self, sql: str, params: list = None, fail_counter: int = 0):
+    def execute_simple(self, sql: str, params: list = None):
         """
         Execute as single SQL statement
 
@@ -268,10 +269,34 @@ class DBManager:
                     conn.commit()
                     self._print_debug_output('conn.commit complete. .')
                 except Exception as e:
-                    self._safe_shutdown(conn, error_mode=True)
+                    self._safe_tunnel_close()
                     raise Exception(f'Database Execute Attempt Failed \n {e}')
                 finally:
-                    self._safe_shutdown(conn, curs)
+                    self._safe_tunnel_close()
+
+    def get_single_result(self, sql: str, params: list = None):
+        """
+        Execute as single SQL statement
+
+        Args:
+            sql: SQL string
+            params: List of parameters
+
+        Returns: None
+        """
+        conn = self._get_connection()
+        with conn:
+            with conn.cursor() as curs:
+                self._print_debug_output(f"Getting query:\n {sql}")
+                try:
+                    curs.execute(sql, params)
+                    res = curs.fetchone()
+                except Exception as e:
+                    self._safe_tunnel_close()
+                    raise Exception(f'Database Execute Attempt Failed \n {e}')
+                finally:
+                    self._safe_tunnel_close()
+        return res
 
     def execute_many(self, sql: str, params: list) -> None:
         """
@@ -293,13 +318,13 @@ class DBManager:
                 try:
                     execute_values(curs, sql, params)
                     duration = time.time() - start_time
-                    self._print_debug_output('Inserted {} rows in {} seconds'.format(len(params), round(duration, 2)))
+                    self._print_debug_output(f'Inserted {len(params)} rows in {round(duration, 2)} seconds')
                     conn.commit()
                 except Exception as e:
-                    self._safe_shutdown(conn, error_mode=True)
+                    self._safe_tunnel_close()
                     raise Exception(f'Database Execute Attempt Failed \n {e}')
                 finally:
-                    self._safe_shutdown(conn, curs)
+                    self._safe_tunnel_close()
 
     def delete(self, sql: str, params: list):
         """
@@ -311,18 +336,8 @@ class DBManager:
 
         Returns: None
         """
-        self._print_debug_output(f"Getting query:\n {sql}")
-        conn = self._get_connection()
-        with conn:
-            with conn.cursor() as curs:
-                try:
-                    curs.execute(sql, params)
-                    conn.commit()
-                except Exception as e:
-                    self._safe_shutdown(conn, error_mode=True)
-                    raise Exception(f'Database Execute Attempt Failed \n {e}')
-                finally:
-                    self._safe_shutdown(conn, curs)
+        print('WARNING: Depreciated function. Use execute_simple.')
+        self.execute_simple(sql, params)
 
     # Utility methods
     @staticmethod

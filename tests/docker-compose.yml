@@ -1,12 +1,12 @@
 version: '3.7'
 services:
     postgres:
-        container_name: airflow_pg
+        container_name: cbc_data_connect_test_db_pg
         image: postgres:9.6
         env_file:
             - .env
         ports:
-            - "5433:5432"
+            - "5434:5432"
         volumes:
             - "${LOCALDATABASE}:/var/lib/postgresql/data/pgdata"
         logging:

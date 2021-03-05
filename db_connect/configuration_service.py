@@ -19,8 +19,10 @@ class ConfigurationService:
     """
     @property
     def use_ssh(self):
-        if os.environ.get('USE_SSH').lower() == 'true':
-            return True
+        res = os.environ.get('USE_SSH')
+        if res:
+            if res.lower() == 'true':
+                return True
         return False
 
     @property
@@ -33,7 +35,10 @@ class ConfigurationService:
 
     @property
     def ssh_port(self):
-        return int(os.environ.get('SSH_PORT'))
+        port = os.environ.get('SSH_PORT')
+        if port:
+            return int(port)
+        return None
 
     @property
     def ssh_user(self):
@@ -45,7 +50,10 @@ class ConfigurationService:
 
     @property
     def ssh_remote_bind_port(self):
-        return int(os.environ.get('REMOTE_BIND_PORT'))
+        port = os.environ.get('REMOTE_BIND_PORT')
+        if port:
+            return int(port)
+        return None
 
     @property
     def ssh_local_bind_address(self):
@@ -53,7 +61,10 @@ class ConfigurationService:
 
     @property
     def ssh_local_bind_port(self):
-        return int(os.environ.get('LOCAL_BIND_PORT'))
+        port = os.environ.get('LOCAL_BIND_PORT')
+        if port:
+            return int(port)
+        return None
 
     """
     # section DB Config
