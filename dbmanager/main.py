@@ -6,7 +6,7 @@ import sshtunnel
 import pandas as pd
 from numpy import inf
 
-from db_manager.configuration_service import ConfigurationService as Config
+from dbmanager.configuration_service import ConfigurationService as Config
 
 
 class DBManager:
