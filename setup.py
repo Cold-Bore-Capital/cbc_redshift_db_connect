@@ -14,6 +14,7 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     packages=find_packages(),
+    url='https://github.com/Cold-Bore-Capital/dbmanager',
     install_requires=[
         'psycopg2-binary>=2.8',
         'sshtunnel>=0.4.0',
